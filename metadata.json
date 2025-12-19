@@ -1,0 +1,5 @@
+{
+  "name": "TPS Waste Analyzer",
+  "description": "A video analysis tool powered by Gemini that identifies manufacturing waste (Muda) using Toyota Production System principles.",
+  "requestFramePermissions": []
+}

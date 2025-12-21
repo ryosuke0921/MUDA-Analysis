@@ -1,7 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { VideoFile } from "../types";
 
-const MAX_FILE_SIZE_BYTES = 19 * 1024 * 1024; // Limit client-side base64 to ~19MB to be safe
+const MAX_FILE_SIZE_BYTES = 200 * 1024 * 1024; // Limit client-side base64 to 200MB
 
 export const checkFileSize = (file: File): boolean => {
   return file.size <= MAX_FILE_SIZE_BYTES;
@@ -56,10 +56,19 @@ export const analyzeVideo = async (
       config: {
         systemInstruction: systemInstruction,
         temperature: 0.4, // Lower temperature for more analytical/factual output
+        // responseMimeType: 'text/plain', // Removed as it may cause issues with some model versions
       },
     });
 
-    return response.text;
+    const text = response.text;
+
+    if (!text) {
+        // Handle cases where the model blocks output or returns nothing
+        console.warn("Model returned no text. Finish reason:", response.candidates?.[0]?.finishReason);
+        return "Analysis completed, but no text was generated. This might be due to safety filters or an unexpected model response. Please try a different video or context.";
+    }
+
+    return text;
   } catch (error) {
     console.error("Gemini API Error:", error);
     throw error;

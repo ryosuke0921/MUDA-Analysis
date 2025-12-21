@@ -2,41 +2,76 @@ import React, { useCallback } from 'react';
 import { Upload, X, Film, AlertCircle } from 'lucide-react';
 import { VideoFile } from '../types';
 import { checkFileSize } from '../services/geminiService';
+import { TRANSLATIONS } from '../constants';
 
 interface VideoUploaderProps {
   videos: VideoFile[];
   setVideos: React.Dispatch<React.SetStateAction<VideoFile[]>>;
   disabled: boolean;
+  t: typeof TRANSLATIONS['en'];
 }
 
-const VideoUploader: React.FC<VideoUploaderProps> = ({ videos, setVideos, disabled }) => {
-  const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+const getVideoDuration = (file: File): Promise<number> => {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.onloadedmetadata = () => {
+      window.URL.revokeObjectURL(video.src);
+      resolve(video.duration);
+    };
+    video.onerror = () => {
+      window.URL.revokeObjectURL(video.src);
+      reject("Invalid video");
+    };
+    video.src = window.URL.createObjectURL(file);
+  });
+};
+
+const VideoUploader: React.FC<VideoUploaderProps> = ({ videos, setVideos, disabled, t }) => {
+  const handleFileChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files.length > 0) {
       const newFiles: VideoFile[] = [];
-      const skippedFiles: string[] = [];
+      const errorMessages: string[] = [];
 
-      Array.from(event.target.files).forEach((item) => {
-        const file = item as File;
-        if (!file.type.startsWith('video/')) {
-          return;
-        }
+      const fileList = Array.from(event.target.files);
+
+      for (const file of fileList) {
+        if (!file.type.startsWith('video/')) continue;
+        
+        // 1. Check File Size (200MB)
         if (!checkFileSize(file)) {
-          skippedFiles.push(file.name);
-          return;
+          errorMessages.push(`${file.name}: Exceeds 200MB size limit`);
+          continue;
         }
+
+        // 2. Check Duration (10 minutes = 600 seconds)
+        try {
+          const duration = await getVideoDuration(file);
+          if (duration > 600) {
+            errorMessages.push(`${file.name}: Exceeds 10 minute duration limit`);
+            continue;
+          }
+        } catch (e) {
+          errorMessages.push(`${file.name}: Could not verify video duration`);
+          continue;
+        }
+
         const previewUrl = URL.createObjectURL(file);
         newFiles.push({ file, previewUrl });
-      });
-
-      if (skippedFiles.length > 0) {
-        alert(`Some files were skipped because they exceed the browser upload limit (20MB):\n${skippedFiles.join('\n')}`);
       }
 
-      setVideos(prev => [...prev, ...newFiles]);
+      if (errorMessages.length > 0) {
+        alert(`${t.alert_size_limit}\n${errorMessages.join('\n')}`);
+      }
+
+      if (newFiles.length > 0) {
+        setVideos(prev => [...prev, ...newFiles]);
+      }
+      
       // Reset input
       event.target.value = '';
     }
-  }, [setVideos]);
+  }, [setVideos, t]);
 
   const removeVideo = (index: number) => {
     setVideos(prev => {
@@ -65,11 +100,11 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ videos, setVideos, disabl
           <div className="w-16 h-16 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mb-4">
             <Upload size={32} />
           </div>
-          <h3 className="text-lg font-medium text-gray-900">Drop manufacturing videos here</h3>
-          <p className="text-sm text-gray-500 mt-2">or click to browse (Max 20MB per file)</p>
+          <h3 className="text-lg font-medium text-gray-900">{t.drop_text}</h3>
+          <p className="text-sm text-gray-500 mt-2">{t.browse_text} ({t.limit_text})</p>
           <div className="mt-4 flex items-center text-xs text-amber-600 bg-amber-50 px-3 py-1 rounded-full">
             <AlertCircle size={14} className="mr-1.5" />
-            <span>Browser-limit: Short clips only</span>
+            <span>{t.browser_limit_alert}</span>
           </div>
         </div>
       </div>

@@ -20,3 +20,5 @@ export interface TpsConfig {
   context: string;
   model: string;
 }
+
+export type Language = 'en' | 'ja' | 'vi';

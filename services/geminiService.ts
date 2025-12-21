@@ -41,10 +41,24 @@ export const analyzeVideo = async (
   // Prepare contents
   const videoParts = await Promise.all(videos.map(v => fileToGenerativePart(v.file)));
   
+  // Create a list of filenames to help the model identify which video is which
+  const fileListInfo = videos.map((v, i) => `Video ${i + 1} (Stream index ${i}): ${v.file.name}`).join('\n');
+
+  const detailedPrompt = `
+${prompt}
+
+---
+[Video File Metadata]
+The following videos have been uploaded (in order):
+${fileListInfo}
+
+Please use these filenames in your report headers instead of generic numbers.
+`;
+
   // Construct the prompt content array
   const contents = [
     ...videoParts,
-    { text: prompt }
+    { text: detailedPrompt }
   ];
 
   try {
